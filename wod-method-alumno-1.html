@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WOD Method — Mi Entrenamiento</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #080808; color: #f0f0f0; font-family: 'Barlow', sans-serif; min-height: 100vh; }
+  body { max-width: 430px; margin: 0 auto; padding-bottom: 80px; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; background: #111; color: #f0f0f0; border: 1px solid #1e1e1e; border-radius: 6px; padding: 10px 12px; font-size: 14px; width: 100%; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #FFD60A; }
+  label { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #888; margin-bottom: 4px; display: block; }
+  ::placeholder { color: #555; }
+
+  .accent { color: #FFD60A; }
+  .accent-bg { background: #FFD60A; color: #080808; }
+
+  /* === LOGIN === */
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 4px; margin-bottom: 6px; text-align: center; }
+  .logo span { color: #FFD60A; }
+  .logo-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; letter-spacing: 3px; margin-bottom: 36px; text-align: center; }
+  .login-card { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 14px; padding: 24px; width: 100%; max-width: 360px; }
+  .login-card h2 { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1.5px; font-size: 20px; margin-bottom: 16px; }
+  .field-group { margin-bottom: 12px; }
+  .login-card .btn-primary { width: 100%; padding: 14px; margin-top: 12px; background: #FFD60A; color: #080808; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; border-radius: 6px; }
+  .login-card .btn-link { width: 100%; padding: 10px; background: transparent; color: #888; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 8px; }
+  .login-error { color: #FF1744; font-size: 12px; margin-top: 8px; min-height: 16px; text-align: center; }
+  .login-success { color: #00E676; font-size: 12px; margin-top: 8px; min-height: 16px; text-align: center; }
+
+  /* === APP === */
+  #app { display: none; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px 12px; }
+  .topbar .brand { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; }
+  .topbar .brand span { color: #FFD60A; }
+  .topbar .logout { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; letter-spacing: 1px; color: #777; text-transform: uppercase; padding: 6px 10px; border: 1px solid #1e1e1e; border-radius: 5px; }
+
+  /* === MODE SELECTOR (HOME CARDS) === */
+  .mode-card { background: linear-gradient(135deg, #111 0%, #0a0a0a 100%); border: 1px solid #1e1e1e; border-radius: 14px; padding: 18px; margin-bottom: 12px; position: relative; overflow: hidden; cursor: pointer; }
+  .mode-card::before { content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 4px; background: #FFD60A; }
+  .mode-card.no-data::before { background: #444; }
+  .mode-card-tag { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; color: #666; margin-bottom: 4px; text-transform: uppercase; }
+  .mode-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1.5px; line-height: 1; margin-bottom: 6px; color: #FFD60A; }
+  .mode-card.no-data .mode-card-title { color: #666; }
+  .mode-card-desc { font-size: 13px; color: #999; line-height: 1.5; margin-bottom: 12px; }
+  .mode-card-meta { display: flex; align-items: center; padding-top: 10px; border-top: 1px solid #1e1e1e; }
+  .mode-card-meta .meta-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.5px; color: #888; }
+  .mode-card-meta .arrow { margin-left: auto; font-size: 18px; color: #FFD60A; }
+  .mode-card.no-data .arrow { color: #444; }
+
+  /* === BOTTOM NAV === */
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0a0a0a; border-top: 1px solid #1a1a1a; display: flex; justify-content: space-around; padding: 8px 4px; max-width: 430px; margin: 0 auto; z-index: 50; }
+  .nav button { display: flex; flex-direction: column; align-items: center; padding: 6px 4px; flex: 1; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; color: #666; }
+  .nav button .ico { font-size: 18px; margin-bottom: 2px; }
+  .nav button.active { color: #FFD60A; }
+
+  /* === SCREENS === */
+  .screen { display: none; padding: 0 14px; }
+  .screen.active { display: block; }
+  .screen-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1.5px; margin-bottom: 4px; padding: 0 4px; }
+  .screen-sub { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #777; letter-spacing: 1px; margin-bottom: 18px; padding: 0 4px; }
+
+  .empty-state { text-align: center; padding: 32px 20px; color: #555; font-size: 13px; }
+  .loading { text-align: center; padding: 40px 20px; color: #555; font-family: 'Barlow Condensed', sans-serif; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; }
+
+  /* === COACH MESSAGE === */
+  .coach-msg { background: #1a1602; border: 1px solid #3a3210; border-left: 4px solid #FFD60A; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; }
+  .coach-msg .lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #FFD60A; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .coach-msg .txt { font-size: 13px; line-height: 1.5; color: #ddd; }
+
+  /* === WOD HOY (CLASES) === */
+  .wod-hero { background: linear-gradient(135deg, #111 0%, #0a0a0a 100%); border: 1px solid #1e1e1e; border-radius: 12px; padding: 16px; margin-bottom: 14px; position: relative; overflow: hidden; }
+  .wod-hero::before { content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 4px; background: #FFD60A; }
+  .wod-tag { display: inline-block; font-family: 'Bebas Neue', sans-serif; font-size: 10px; letter-spacing: 2px; padding: 3px 8px; border-radius: 3px; margin-bottom: 10px; background: #FFD60A; color: #080808; }
+  .wod-name { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1.5px; line-height: 1; margin-bottom: 4px; color: #FFD60A; }
+  .wod-block { margin-top: 12px; }
+  .wod-block-title { font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 2px; color: #888; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .wod-block-title::after { content: ""; flex: 1; height: 1px; background: #1e1e1e; }
+  .wod-block-content { font-size: 14px; line-height: 1.5; color: #ddd; white-space: pre-wrap; }
+
+  .wod-result-banner { margin-top: 12px; padding: 10px 12px; background: #0c1a14; border: 1px solid #1a3a28; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .wod-result-banner .res-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #00E676; }
+  .wod-result-banner .res-edit { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; color: #888; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  /* === RUTINA (ATLETAS) === */
+  .day-tag { display: inline-block; background: #1a1a1a; color: #FFD60A; font-family: 'Bebas Neue', sans-serif; font-size: 11px; letter-spacing: 1.5px; padding: 3px 8px; border-radius: 3px; margin-bottom: 8px; }
+  .routine-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1.5px; line-height: 1; margin-bottom: 12px; color: #FFD60A; }
+  .ex-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #1a1a1a; gap: 12px; }
+  .ex-row:last-child { border-bottom: none; }
+  .ex-checkbox { width: 24px; height: 24px; border-radius: 6px; border: 2px solid #333; flex-shrink: 0; cursor: pointer; }
+  .ex-checkbox.done { border-color: #00E676; background: #00E676; position: relative; }
+  .ex-checkbox.done::after { content: "✓"; color: #080808; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; }
+  .ex-info { flex: 1; }
+  .ex-info .ex-nm { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .ex-info .ex-sets { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; margin-top: 2px; letter-spacing: 0.5px; }
+  .ex-info .ex-rm-hint { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #FFD60A; margin-top: 2px; }
+  .ex-row.done .ex-nm { color: #555; text-decoration: line-through; }
+  .ex-weight-input { width: 60px; flex-shrink: 0; }
+  .ex-weight-input input { padding: 6px; font-size: 12px; text-align: center; }
+
+  /* === BOOKING (CLASES) === */
+  .class-row { display: flex; align-items: center; gap: 10px; background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 8px; padding: 12px; margin-bottom: 6px; }
+  .class-time { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.5px; width: 56px; color: #FFD60A; }
+  .class-info { flex: 1; }
+  .class-info .nm { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; text-transform: uppercase; }
+  .class-info .cap { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; margin-top: 1px; }
+  .btn-book { padding: 8px 12px; border-radius: 5px; font-family: 'Bebas Neue', sans-serif; font-size: 11px; letter-spacing: 1px; background: #FFD60A; color: #080808; }
+  .btn-book.full { background: #1a1a1a; color: #555; }
+  .btn-book.booked { background: #00E676; color: #080808; }
+
+  /* === PRs === */
+  .pr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .pr-cell { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 8px; padding: 10px; cursor: pointer; }
+  .pr-cell .pr-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #aaa; }
+  .pr-cell .pr-val { font-family: 'Bebas Neue', sans-serif; font-size: 22px; line-height: 1; margin-top: 4px; color: #FFD60A; }
+  .pr-cell .pr-val.empty { color: #444; font-size: 14px; }
+  .pr-cell .pr-date { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #666; margin-top: 2px; }
+
+  /* === %RM CALC === */
+  .rm-calc { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 8px; padding: 12px; margin-top: 10px; }
+  .rm-calc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .rm-result { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: #FFD60A; text-align: center; padding: 10px; background: #1a1602; border-radius: 6px; margin-top: 6px; }
+
+  /* === GRAFICO PR === */
+  .pr-chart-card { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .pr-chart-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: #FFD60A; margin-bottom: 10px; }
+  .pr-chart-svg { width: 100%; height: 140px; }
+  .pr-history-list { margin-top: 10px; max-height: 200px; overflow-y: auto; }
+  .pr-history-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1a1a1a; font-size: 12px; }
+  .pr-history-row .val { font-family: 'Bebas Neue', sans-serif; color: #FFD60A; font-size: 14px; }
+  .pr-history-row .dt { font-family: 'JetBrains Mono', monospace; color: #888; }
+
+  /* === HISTORIAL === */
+  .history-row { background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 8px; padding: 12px; margin-bottom: 6px; cursor: pointer; }
+  .history-row .h-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .history-row .h-name { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: #FFD60A; }
+  .history-row .h-date { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #777; }
+  .history-row .h-result { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #ddd; margin-top: 2px; }
+  .history-row .h-scale { display: inline-block; padding: 2px 6px; border-radius: 3px; font-family: 'Bebas Neue', sans-serif; font-size: 10px; letter-spacing: 1px; margin-top: 4px; }
+  .history-row .h-scale.RX { background: #FFD60A; color: #080808; }
+  .history-row .h-scale.Sc { background: #1a1a1a; color: #aaa; border: 1px solid #2a2a2a; }
+  .history-row .h-scale.Beg { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; }
+
+  /* === MODAL === */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+  .modal { background: #0d0d0d; border-top: 1px solid #1e1e1e; border-radius: 16px 16px 0 0; padding: 18px 16px 24px; width: 100%; max-width: 430px; max-height: 90vh; overflow-y: auto; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 1px; }
+  .modal-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 18px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .modal-actions button { flex: 1; padding: 12px; }
+
+  .btn-primary { background: #FFD60A; color: #080808; font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1.5px; padding: 12px 16px; border-radius: 6px; }
+  .btn-secondary { background: #1a1a1a; color: #f0f0f0; font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1px; padding: 10px 14px; border-radius: 6px; border: 1px solid #2a2a2a; }
+  .btn-success { background: #00E676; color: #080808; font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1.5px; padding: 12px 16px; border-radius: 6px; }
+
+  .scale-selector { display: flex; gap: 6px; margin-bottom: 10px; }
+  .scale-selector button { flex: 1; padding: 10px; font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 1.5px; border-radius: 5px; background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; }
+  .scale-selector button.active { background: #FFD60A; color: #080808; border-color: #FFD60A; }
+
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #FFD60A; color: #080808; padding: 10px 16px; border-radius: 6px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; z-index: 200; }
+
+  /* === ACHIEVEMENT POPUP === */
+  .achievement-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .achievement-card { background: linear-gradient(135deg, #1a1602 0%, #0d0d0d 100%); border: 2px solid #FFD60A; border-radius: 16px; padding: 32px 24px; text-align: center; max-width: 320px; box-shadow: 0 0 60px rgba(255, 214, 10, 0.4); animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes pop { 0% { transform: scale(0.7); } 100% { transform: scale(1); } }
+  .achievement-card .ach-icon { font-size: 64px; margin-bottom: 12px; }
+  .achievement-card .ach-tag { font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 3px; color: #FFD60A; margin-bottom: 6px; }
+  .achievement-card .ach-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1.5px; line-height: 1; margin-bottom: 8px; color: #fff; }
+  .achievement-card .ach-desc { font-size: 13px; color: #ccc; line-height: 1.5; margin-bottom: 20px; }
+  .achievement-card .ach-btn { padding: 12px 24px; background: #FFD60A; color: #080808; font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1.5px; border-radius: 6px; }
+
+  /* === BACK BUTTON === */
+  .back-btn { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; color: #888; padding: 8px 4px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="logo">WOD<span>·</span>METHOD</div>
+  <div class="logo-sub">MI ENTRENAMIENTO</div>
+  <div class="login-card">
+    <h2 id="login-title">INGRESAR</h2>
+    <div class="field-group"><label>Email</label><input id="login-email" type="email" autocomplete="email"></div>
+    <div class="field-group" id="pass-field"><label>Contraseña</label><input id="login-pass" type="password" autocomplete="current-password"></div>
+    <button class="btn-primary" id="btn-login">INGRESAR</button>
+    <button class="btn-link" id="btn-forgot">¿Olvidaste tu contraseña?</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-success" id="login-success"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="brand">WOD<span>·</span>METHOD</div>
+    <button class="logout" id="btn-logout">SALIR</button>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen active" id="screen-home">
+    <div class="screen-title" id="home-greeting">HOLA 👋</div>
+    <div class="screen-sub" id="home-date">—</div>
+
+    <div id="coach-msg-box"></div>
+
+    <div class="mode-card" id="card-clases">
+      <div class="mode-card-tag">VENGO AL BOX</div>
+      <div class="mode-card-title">CLASES</div>
+      <div class="mode-card-desc">WOD del día, reservá tu horario y cargá tu resultado.</div>
+      <div class="mode-card-meta">
+        <span class="meta-text" id="meta-clases">—</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+
+    <div class="mode-card" id="card-atletas">
+      <div class="mode-card-tag">RUTINA PERSONAL</div>
+      <div class="mode-card-title">ATLETAS</div>
+      <div class="mode-card-desc">Tu plan personalizado fuera de las clases grupales.</div>
+      <div class="mode-card-meta">
+        <span class="meta-text" id="meta-atletas">—</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+
+    <div class="mode-card" id="card-prs" style="margin-top:18px">
+      <div class="mode-card-tag">RÉCORDS PERSONALES</div>
+      <div class="mode-card-title">MIS PRs</div>
+      <div class="mode-card-desc">Tu progreso en cada levantamiento.</div>
+      <div class="mode-card-meta">
+        <span class="meta-text" id="meta-prs">—</span>
+        <span class="arrow">→</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLASES -->
+  <div class="screen" id="screen-clases">
+    <button class="back-btn" id="btn-back-clases">← Volver</button>
+    <div class="screen-title">CLASES · HOY</div>
+    <div class="screen-sub" id="clases-date">—</div>
+
+    <div id="wod-today"></div>
+
+    <div style="margin-top:14px">
+      <div class="wod-block-title">📅 RESERVAR</div>
+      <div id="classes-list"><div class="loading">Cargando...</div></div>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="wod-block-title">📜 MIS ÚLTIMOS WODs</div>
+      <div id="wod-history-mini"></div>
+    </div>
+  </div>
+
+  <!-- ATLETAS -->
+  <div class="screen" id="screen-atletas">
+    <button class="back-btn" id="btn-back-atletas">← Volver</button>
+    <div class="screen-title">MI RUTINA</div>
+    <div class="screen-sub" id="atletas-date">—</div>
+
+    <div id="routine-today"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- PRs -->
+  <div class="screen" id="screen-prs">
+    <button class="back-btn" id="btn-back-prs">← Volver</button>
+    <div class="screen-title">MIS PRs</div>
+    <div class="screen-sub">Tocá un levantamiento para ver evolución</div>
+
+    <div class="rm-calc">
+      <div style="font-family:'Bebas Neue';letter-spacing:1px;margin-bottom:8px;color:#FFD60A">🧮 CALCULADORA %RM</div>
+      <div class="rm-calc-row">
+        <div><label>1RM (kg)</label><input id="calc-1rm" type="number" placeholder="100" step="0.5"></div>
+        <div><label>%</label><input id="calc-pct" type="number" placeholder="80" step="1"></div>
+      </div>
+      <button class="btn-secondary" id="btn-calc-rm" style="width:100%">CALCULAR</button>
+      <div class="rm-result" id="calc-result">— kg</div>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="wod-block-title">📊 LEVANTAMIENTOS</div>
+      <div class="pr-grid" id="prs-grid"><div class="loading">Cargando...</div></div>
+    </div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="screen" id="screen-history">
+    <button class="back-btn" id="btn-back-history">← Volver</button>
+    <div class="screen-title">HISTORIAL</div>
+    <div class="screen-sub">Todos los WODs que hiciste</div>
+    <div id="history-list"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="nav">
+    <button data-screen="home" class="active"><span class="ico">🏠</span>Inicio</button>
+    <button data-screen="clases"><span class="ico">⚡</span>Clases</button>
+    <button data-screen="atletas"><span class="ico">💪</span>Mi rutina</button>
+    <button data-screen="prs"><span class="ico">🏆</span>PRs</button>
+    <button data-screen="history"><span class="ico">📜</span>Historial</button>
+  </nav>
+</div>
+
+<div id="modal-container"></div>
+<div id="achievement-container"></div>
+
+<script>
+// === FIREBASE ===
+const firebaseConfig = {
+  apiKey: "AIzaSyDaL-qO8qSxawmSS01O6D51411fOM3OhGs",
+  authDomain: "wod-method.firebaseapp.com",
+  projectId: "wod-method",
+  storageBucket: "wod-method.firebasestorage.app",
+  messagingSenderId: "96776525666",
+  appId: "1:96776525666:web:0fd677fbf7fe965a883e3b"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const DAYS_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+const LIFTS = [
+  {id:'back_squat',name:'Back Squat',unit:'kg'},{id:'front_squat',name:'Front Squat',unit:'kg'},
+  {id:'overhead_squat',name:'OH Squat',unit:'kg'},{id:'deadlift',name:'Deadlift',unit:'kg'},
+  {id:'bench_press',name:'Bench',unit:'kg'},{id:'strict_press',name:'Strict Press',unit:'kg'},
+  {id:'push_press',name:'Push Press',unit:'kg'},{id:'barbell_row',name:'Bb Row',unit:'kg'},
+  {id:'snatch',name:'Squat Snatch',unit:'kg'},{id:'power_snatch',name:'Power Snatch',unit:'kg'},
+  {id:'hang_snatch',name:'Hang Snatch',unit:'kg'},{id:'clean',name:'Squat Clean',unit:'kg'},
+  {id:'power_clean',name:'Power Clean',unit:'kg'},{id:'hang_clean',name:'Hang Clean',unit:'kg'},
+  {id:'clean_jerk',name:'C&J',unit:'kg'},{id:'split_jerk',name:'Split Jerk',unit:'kg'},
+  {id:'pistol',name:'Pistol Squat',unit:'kg'},{id:'pull_ups',name:'Pull Ups',unit:'reps'},
+  {id:'push_ups',name:'Push Ups',unit:'reps'},{id:'muscle_up',name:'Muscle Up',unit:'reps'},
+  {id:'hspu',name:'HSPU',unit:'reps'},{id:'double_unders',name:'DU',unit:'reps'}
+];
+
+// Mapa de keywords para detectar levantamiento en strength text (para %RM auto)
+const LIFT_KEYWORDS = {
+  'back squat':'back_squat', 'sentadilla':'back_squat',
+  'front squat':'front_squat',
+  'overhead squat':'overhead_squat', 'oh squat':'overhead_squat', 'ohs':'overhead_squat',
+  'deadlift':'deadlift', 'peso muerto':'deadlift',
+  'bench':'bench_press', 'press banca':'bench_press', 'banca':'bench_press',
+  'strict press':'strict_press', 'press militar':'strict_press',
+  'push press':'push_press',
+  'snatch':'snatch',
+  'power snatch':'power_snatch',
+  'hang snatch':'hang_snatch',
+  'clean':'clean',
+  'power clean':'power_clean',
+  'hang clean':'hang_clean',
+  'clean & jerk':'clean_jerk', 'clean and jerk':'clean_jerk', 'c&j':'clean_jerk',
+  'split jerk':'split_jerk',
+  'pistol':'pistol'
+};
+
+let currentUser = null;
+let studentDoc = null;
+let coachId = null;
+let prMap = {};
+let isResetMode = false;
+
+function $(id) { return document.getElementById(id); }
+function show(id) { $(id).style.display = ''; }
+function hide(id) { $(id).style.display = 'none'; }
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function fmtDate(s) { if(!s) return '—'; const [y,m,d] = s.split('-').map(Number); return `${d} ${MONTHS_ES[m-1].substring(0,3)}`; }
+function fmtDateLong(s) { if(!s) return '—'; const [y,m,d] = s.split('-').map(Number); return `${d} ${MONTHS_ES[m-1]} ${y}`; }
+function dateInputValue(s) {
+  if (!s) return new Date().toISOString().substring(0,10);
+  const [y,m,d] = s.split('-').map(Number);
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+function showAchievement(icon, title, desc) {
+  const wrap = document.createElement('div');
+  wrap.className = 'achievement-overlay';
+  wrap.innerHTML = `
+    <div class="achievement-card">
+      <div class="ach-icon">${icon}</div>
+      <div class="ach-tag">¡LOGRO DESBLOQUEADO!</div>
+      <div class="ach-title">${title}</div>
+      <div class="ach-desc">${desc}</div>
+      <button class="ach-btn">SEGUIR 🔥</button>
+    </div>
+  `;
+  $('achievement-container').appendChild(wrap);
+  wrap.querySelector('.ach-btn').onclick = () => wrap.remove();
+  wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+}
+
+// === AUTH ===
+$('btn-login').onclick = async () => {
+  const email = $('login-email').value.trim();
+  $('login-error').textContent = '';
+  $('login-success').textContent = '';
+  if (!email) { $('login-error').textContent = 'Falta email'; return; }
+
+  if (isResetMode) {
+    try {
+      await auth.sendPasswordResetEmail(email);
+      $('login-success').textContent = '✓ Te mandamos un mail para resetear';
+      setTimeout(() => toggleResetMode(false), 3000);
+    } catch (e) {
+      $('login-error').textContent = e.code === 'auth/user-not-found' ? 'No existe esa cuenta' : e.message;
+    }
+    return;
+  }
+
+  const pass = $('login-pass').value;
+  if (!pass) { $('login-error').textContent = 'Falta contraseña'; return; }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    $('login-error').textContent = e.code === 'auth/wrong-password' ? 'Contraseña incorrecta'
+      : e.code === 'auth/user-not-found' ? 'No existe esa cuenta — pedile a tu coach que te dé de alta'
+      : e.code === 'auth/invalid-credential' ? 'Email o contraseña incorrectos'
+      : e.message;
+  }
+};
+
+function toggleResetMode(on) {
+  isResetMode = on;
+  $('login-title').textContent = on ? 'RESETEAR CONTRASEÑA' : 'INGRESAR';
+  $('btn-login').textContent = on ? 'ENVIAR MAIL' : 'INGRESAR';
+  $('btn-forgot').textContent = on ? '← Volver al login' : '¿Olvidaste tu contraseña?';
+  $('pass-field').style.display = on ? 'none' : '';
+  $('login-error').textContent = '';
+  $('login-success').textContent = '';
+}
+
+$('btn-forgot').onclick = () => toggleResetMode(!isResetMode);
+
+$('btn-logout').onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    try {
+      const snap = await db.collection('students').where('email', '==', user.email).limit(1).get();
+      if (snap.empty) {
+        $('login-error').textContent = 'Tu coach todavía no te dio de alta. Hablá con él.';
+        await auth.signOut();
+        return;
+      }
+      studentDoc = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      coachId = studentDoc.coachId;
+      hide('login-screen'); show('app');
+      $('app').style.display = 'block';
+      initApp();
+    } catch (e) {
+      $('login-error').textContent = 'Error: ' + e.message;
+    }
+  } else {
+    currentUser = null; studentDoc = null;
+    show('login-screen'); hide('app');
+  }
+});
+
+// === NAV ===
+function gotoScreen(name) {
+  document.querySelectorAll('.nav button').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+  const navBtn = document.querySelector(`.nav button[data-screen="${name}"]`);
+  if (navBtn) navBtn.classList.add('active');
+  $('screen-' + name).classList.add('active');
+  if (name === 'clases') loadClases();
+  if (name === 'atletas') loadAtletas();
+  if (name === 'prs') loadPRs();
+  if (name === 'history') loadHistory();
+  if (name === 'home') initApp();
+  window.scrollTo(0,0);
+}
+
+document.querySelectorAll('.nav button').forEach(b => {
+  b.onclick = () => gotoScreen(b.dataset.screen);
+});
+
+$('card-clases').onclick = () => gotoScreen('clases');
+$('card-atletas').onclick = () => gotoScreen('atletas');
+$('card-prs').onclick = () => gotoScreen('prs');
+$('btn-back-clases').onclick = () => gotoScreen('home');
+$('btn-back-atletas').onclick = () => gotoScreen('home');
+$('btn-back-prs').onclick = () => gotoScreen('home');
+$('btn-back-history').onclick = () => gotoScreen('home');
+
+// === INIT ===
+async function initApp() {
+  const d = new Date();
+  const dayName = DAYS_ES[d.getDay()];
+  const dateStr = `${dayName} ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`;
+  $('home-greeting').textContent = `Hola, ${(studentDoc.name||'').split(' ')[0]} 👋`;
+  $('home-date').textContent = dateStr.toUpperCase();
+  $('clases-date').textContent = dateStr.toUpperCase();
+  $('atletas-date').textContent = dateStr.toUpperCase();
+
+  if (studentDoc.coachMessage) {
+    $('coach-msg-box').innerHTML = `
+      <div class="coach-msg">
+        <div class="lbl">💬 MENSAJE DEL COACH</div>
+        <div class="txt">${studentDoc.coachMessage}</div>
+      </div>
+    `;
+  } else {
+    $('coach-msg-box').innerHTML = '';
+  }
+
+  // Pre-cargar PRs (para hint %RM)
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('prs').get();
+    prMap = {};
+    snap.docs.forEach(d => prMap[d.id] = d.data());
+    const cant = Object.keys(prMap).length;
+    $('meta-prs').textContent = cant ? `${cant} CARGADOS` : 'CARGÁ TUS PRs';
+  } catch (e) { $('meta-prs').textContent = 'VER'; }
+
+  const mode = studentDoc.mode || 'atletas';
+  if (mode === 'clases' || mode === 'ambos') {
+    try {
+      const wodDoc = await db.collection('coaches').doc(coachId).collection('wods').doc(todayStr()).get();
+      if (wodDoc.exists) {
+        const w = wodDoc.data();
+        $('meta-clases').textContent = `HOY: ${(w.name || 'WOD del día').toUpperCase()}`;
+      } else {
+        $('meta-clases').textContent = 'NO HAY WOD CARGADO';
+      }
+      $('card-clases').classList.remove('no-data');
+    } catch (e) { $('meta-clases').textContent = 'CARGAR'; }
+  } else {
+    $('card-clases').classList.add('no-data');
+    $('meta-clases').textContent = 'NO ESTÁS EN ESTA MODALIDAD';
+  }
+
+  if (mode === 'atletas' || mode === 'ambos' || !studentDoc.mode) {
+    try {
+      const snap = await db.collection('students').doc(studentDoc.id).collection('routines').get();
+      const routines = snap.docs.map(d => ({id:d.id,...d.data()})).filter(r => r.status !== 'archived');
+      const todayRoutine = routines.find(r => DAYS_ES.indexOf(r.day) === new Date().getDay());
+      if (todayRoutine) {
+        $('meta-atletas').textContent = `HOY: ${todayRoutine.name.toUpperCase()}`;
+      } else if (routines.length) {
+        $('meta-atletas').textContent = 'DÍA DE DESCANSO 💆';
+      } else {
+        $('meta-atletas').textContent = 'SIN RUTINAS CARGADAS';
+      }
+      $('card-atletas').classList.remove('no-data');
+    } catch (e) { $('meta-atletas').textContent = 'VER'; }
+  } else {
+    $('card-atletas').classList.add('no-data');
+    $('meta-atletas').textContent = 'NO ESTÁS EN ESTA MODALIDAD';
+  }
+}
+
+// === DETECT LIFT IN TEXT (para %RM auto) ===
+function detectLiftInText(text) {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  // buscar keywords; priorizar las más específicas (longer first)
+  const sortedKeys = Object.keys(LIFT_KEYWORDS).sort((a,b) => b.length - a.length);
+  for (const k of sortedKeys) if (t.includes(k)) return LIFT_KEYWORDS[k];
+  return null;
+}
+
+function detectPercentInText(text) {
+  if (!text) return null;
+  const m = text.match(/(\d{1,3})\s*%/);
+  return m ? parseInt(m[1]) : null;
+}
+
+// === CLASES ===
+async function loadClases() {
+  const mode = studentDoc.mode || 'atletas';
+  if (mode === 'atletas') {
+    $('wod-today').innerHTML = '<div class="empty-state">No estás en modalidad CLASES.<br>Hablá con tu coach si querés sumar.</div>';
+    $('classes-list').innerHTML = '';
+    $('wod-history-mini').innerHTML = '';
+    return;
+  }
+
+  // WOD del día
+  try {
+    const today = todayStr();
+    const wodDoc = await db.collection('coaches').doc(coachId).collection('wods').doc(today).get();
+    if (wodDoc.exists) {
+      const w = wodDoc.data();
+
+      // Procesar strength para %RM auto
+      let strengthHTML = '';
+      if (w.strength) {
+        const liftId = detectLiftInText(w.strength);
+        const pct = detectPercentInText(w.strength);
+        let hint = '';
+        if (liftId && pct && prMap[liftId]) {
+          const calculated = (prMap[liftId].value * pct / 100).toFixed(1);
+          const liftName = LIFTS.find(l => l.id === liftId).name;
+          hint = `<div style="margin-top:6px;padding:8px;background:#1a1602;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#FFD60A">⚡ Para vos (${liftName}): <strong>${calculated} kg</strong> · ${pct}% de tu PR ${prMap[liftId].value}kg</div>`;
+        }
+        strengthHTML = `<div class="wod-block"><div class="wod-block-title">💪 STRENGTH</div><div class="wod-block-content">${w.strength}</div>${hint}</div>`;
+      }
+
+      // Resultado guardado?
+      const resDoc = await db.collection('students').doc(studentDoc.id).collection('wod_results').doc(today).get();
+      const myResult = resDoc.exists ? resDoc.data() : null;
+
+      let resultBanner = '';
+      if (myResult) {
+        resultBanner = `
+          <div class="wod-result-banner" id="result-banner">
+            <div class="res-text">✓ Tu resultado: ${myResult.value} ${myResult.scale ? `· ${myResult.scale}` : ''}</div>
+            <div class="res-edit">Editar</div>
+          </div>`;
+      } else {
+        resultBanner = `<button class="btn-primary" id="btn-load-result" style="width:100%;margin-top:12px">📝 CARGAR MI RESULTADO</button>`;
+      }
+
+      $('wod-today').innerHTML = `
+        <div class="wod-hero">
+          <span class="wod-tag">WOD DE HOY</span>
+          <div class="wod-name">${w.name || 'WOD'}</div>
+          ${w.warmup ? `<div class="wod-block"><div class="wod-block-title">🔥 WARM UP</div><div class="wod-block-content">${w.warmup}</div></div>` : ''}
+          ${strengthHTML}
+          ${w.metcon ? `<div class="wod-block"><div class="wod-block-title">⚡ METCON</div><div class="wod-block-content">${w.metcon}</div></div>` : ''}
+          ${w.scales ? `<div class="wod-block"><div class="wod-block-title">📊 ESCALAS</div><div class="wod-block-content">${w.scales}</div></div>` : ''}
+          ${resultBanner}
+        </div>
+      `;
+
+      const btnLoad = $('btn-load-result');
+      const banner = $('result-banner');
+      if (btnLoad) btnLoad.onclick = () => openResultModal(w, null);
+      if (banner) banner.onclick = () => openResultModal(w, myResult);
+    } else {
+      $('wod-today').innerHTML = '<div class="empty-state">Tu coach todavía no cargó el WOD de hoy</div>';
+    }
+  } catch (e) { $('wod-today').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`; }
+
+  // Reservas
+  try {
+    const snap = await db.collection('coaches').doc(coachId).collection('classes').get();
+    const classes = snap.docs.map(d => ({id:d.id,...d.data()}));
+    const dow = new Date().getDay();
+    const today = todayStr();
+    const todayClasses = classes.filter(c => (c.days||[]).includes(dow)).sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+    if (!todayClasses.length) {
+      $('classes-list').innerHTML = '<div class="empty-state">No hay clases hoy</div>';
+    } else {
+      $('classes-list').innerHTML = todayClasses.map(c => {
+        const booked = (c.bookings && c.bookings[today]) || [];
+        const cap = c.capacity || 10;
+        const isMine = booked.includes(studentDoc.id);
+        const isFull = booked.length >= cap;
+        let btnClass = 'btn-book', btnText = 'RESERVAR';
+        if (isMine) { btnClass += ' booked'; btnText = '✓ RESERVADA'; }
+        else if (isFull) { btnClass += ' full'; btnText = 'LLENA'; }
+        return `
+          <div class="class-row">
+            <div class="class-time">${c.time || '--:--'}</div>
+            <div class="class-info">
+              <div class="nm">${c.name || 'Clase'}</div>
+              <div class="cap">${booked.length}/${cap} reservados</div>
+            </div>
+            <button class="${btnClass}" data-id="${c.id}" data-mine="${isMine}" ${(isFull&&!isMine)?'disabled':''}>${btnText}</button>
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.btn-book').forEach(b => {
+        if (b.classList.contains('full') && b.dataset.mine === 'false') return;
+        b.onclick = async () => {
+          const id = b.dataset.id;
+          const mine = b.dataset.mine === 'true';
+          try {
+            const ref = db.collection('coaches').doc(coachId).collection('classes').doc(id);
+            const doc = await ref.get();
+            const data = doc.data();
+            const bookings = data.bookings || {};
+            const today = todayStr();
+            if (!bookings[today]) bookings[today] = [];
+            if (mine) {
+              bookings[today] = bookings[today].filter(x => x !== studentDoc.id);
+              toast('Reserva cancelada');
+            } else {
+              if (!bookings[today].includes(studentDoc.id)) bookings[today].push(studentDoc.id);
+              toast('Reserva confirmada ✓');
+            }
+            await ref.update({ bookings });
+            loadClases();
+          } catch (e) { toast('Error: '+e.message); }
+        };
+      });
+    }
+  } catch (e) {
+    $('classes-list').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+
+  // Mini historial (últimos 3 WODs)
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('wod_results').orderBy('date', 'desc').limit(3).get();
+    const items = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (items.length) {
+      $('wod-history-mini').innerHTML = items.map(r => `
+        <div class="history-row">
+          <div class="h-head">
+            <div class="h-name">${r.wodName || 'WOD'}</div>
+            <div class="h-date">${fmtDate(r.date)}</div>
+          </div>
+          <div class="h-result">${r.value || ''}</div>
+          ${r.scale ? `<span class="h-scale ${r.scale}">${r.scale}</span>` : ''}
+        </div>
+      `).join('') + `<button class="btn-secondary" onclick="gotoScreen('history')" style="width:100%;margin-top:6px">VER TODO EL HISTORIAL →</button>`;
+    } else {
+      $('wod-history-mini').innerHTML = '<div class="empty-state">Todavía no cargaste ningún resultado</div>';
+    }
+  } catch (e) { $('wod-history-mini').innerHTML = ''; }
+}
+
+// === MODAL CARGAR RESULTADO ===
+function openResultModal(wod, existing) {
+  const today = todayStr();
+  const currentScale = existing?.scale || 'RX';
+  openModal(`Resultado · ${wod.name || 'WOD'}`, `
+    <div style="font-size:12px;color:#888;margin-bottom:10px">${wod.metcon || ''}</div>
+
+    <label>Escala</label>
+    <div class="scale-selector">
+      <button data-scale="RX" class="${currentScale==='RX'?'active':''}">RX</button>
+      <button data-scale="Sc" class="${currentScale==='Sc'?'active':''}">SCALED</button>
+      <button data-scale="Beg" class="${currentScale==='Beg'?'active':''}">BEGINNER</button>
+    </div>
+
+    <div class="field-group">
+      <label>Resultado (tiempo, rondas+reps, peso)</label>
+      <input id="res-value" placeholder='ej: 6:42 · 12+5 rds · 102kg' value="${existing?.value || ''}">
+    </div>
+
+    <div class="field-group">
+      <label>Energía (1-10)</label>
+      <input id="res-energy" type="number" min="1" max="10" value="${existing?.energy || 7}">
+    </div>
+
+    <div class="field-group">
+      <label>Dificultad (1-10)</label>
+      <input id="res-difficulty" type="number" min="1" max="10" value="${existing?.difficulty || 7}">
+    </div>
+
+    <div class="field-group">
+      <label>Notas</label>
+      <textarea id="res-note" placeholder="Cómo te sentiste, qué mejorar...">${existing?.note || ''}</textarea>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:6px;margin-top:8px">
+      <input type="checkbox" id="res-pr" style="width:auto" ${existing?.isPR?'checked':''}>
+      <span style="text-transform:none;letter-spacing:0;color:#fff;font-family:'Barlow';font-weight:400;font-size:13px">¡Hice un PR! 🏆</span>
+    </label>
+  `, async () => {
+    const value = $('res-value').value.trim();
+    if (!value) { toast('Falta resultado'); return false; }
+    const scale = document.querySelector('.scale-selector button.active').dataset.scale;
+    const data = {
+      wodName: wod.name || 'WOD', wodMetcon: wod.metcon || '',
+      date: today, value, scale,
+      energy: parseInt($('res-energy').value) || null,
+      difficulty: parseInt($('res-difficulty').value) || null,
+      note: $('res-note').value.trim(),
+      isPR: $('res-pr').checked,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    try {
+      await db.collection('students').doc(studentDoc.id).collection('wod_results').doc(today).set(data, { merge: true });
+
+      // Lograr asistencia automática
+      await db.collection('students').doc(studentDoc.id).update({
+        lastAttendance: today,
+        attendanceDays: firebase.firestore.FieldValue.arrayUnion(today)
+      });
+
+      const wasNew = !existing;
+      const wasPR = data.isPR && !existing?.isPR;
+
+      toast('Resultado guardado ✓');
+      loadClases();
+
+      // Lograr achievements
+      if (wasPR) {
+        await checkAndShowAchievement('first_pr_wod', '🏆', '¡PRIMER PR!', `Hiciste tu primer PR en "${data.wodName}". A romperla.`);
+      }
+      if (wasNew) {
+        const total = await countWodResults();
+        if (total === 1) showAchievement('🎯', '¡PRIMER WOD!', 'Cargaste tu primer resultado. El que arranca, gana.');
+        else if (total === 10) showAchievement('🔥', '10 WODs', '10 WODs completados. Esto recién empieza.');
+        else if (total === 50) showAchievement('💪', '50 WODs', 'Sos parte del box. 50 WODs es serio.');
+        else if (total === 100) showAchievement('👑', '100 WODs', 'Cien. Atleta de verdad.');
+      }
+      return true;
+    } catch (e) { toast('Error: '+e.message); return false; }
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll('.scale-selector button').forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll('.scale-selector button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      };
+    });
+  }, 100);
+}
+
+async function countWodResults() {
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('wod_results').get();
+    return snap.size;
+  } catch { return 0; }
+}
+
+async function checkAndShowAchievement(id, icon, title, desc) {
+  try {
+    const ref = db.collection('students').doc(studentDoc.id).collection('achievements').doc(id);
+    const doc = await ref.get();
+    if (doc.exists) return;
+    await ref.set({ unlockedAt: firebase.firestore.FieldValue.serverTimestamp(), title, desc, icon });
+    showAchievement(icon, title, desc);
+  } catch (e) { console.error(e); }
+}
+
+// === ATLETAS ===
+async function loadAtletas() {
+  const mode = studentDoc.mode || 'atletas';
+  if (mode === 'clases') {
+    $('routine-today').innerHTML = '<div class="empty-state">No estás en modalidad ATLETAS.<br>Hablá con tu coach si querés sumar.</div>';
+    return;
+  }
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('routines').get();
+    const routines = snap.docs.map(d => ({id:d.id,...d.data()})).filter(r => r.status !== 'archived');
+    const todayRoutine = routines.find(r => DAYS_ES.indexOf(r.day) === new Date().getDay());
+
+    if (!todayRoutine) {
+      $('routine-today').innerHTML = '<div class="empty-state">No tenés rutina para hoy.<br>Día de descanso 💆</div>';
+      return;
+    }
+
+    const today = todayStr();
+    const checkDoc = await db.collection('students').doc(studentDoc.id).collection('checks').doc(today).get();
+    const checks = checkDoc.exists ? (checkDoc.data().exercises || []) : [];
+
+    const totalEx = (todayRoutine.exercises||[]).length;
+
+    $('routine-today').innerHTML = `
+      <span class="day-tag">${todayRoutine.day || ''}</span>
+      <div class="routine-name">${todayRoutine.name || 'Rutina'}</div>
+      ${(todayRoutine.exercises || []).map((e, i) => {
+        const isDone = checks.includes(i);
+        // %RM auto: si el ejercicio tiene "@ XX%" y es un lift conocido
+        const liftId = detectLiftInText(e.name);
+        const pct = detectPercentInText(e.weight) || detectPercentInText(e.sets) || detectPercentInText(e.reps);
+        let rmHint = '';
+        if (liftId && pct && prMap[liftId]) {
+          const calculated = (prMap[liftId].value * pct / 100).toFixed(1);
+          rmHint = `<div class="ex-rm-hint">⚡ ${calculated} kg · ${pct}% de tu ${prMap[liftId].value}kg</div>`;
+        }
+        return `
+          <div class="ex-row ${isDone?'done':''}" data-idx="${i}">
+            <div class="ex-checkbox ${isDone?'done':''}" data-idx="${i}"></div>
+            <div class="ex-info">
+              <div class="ex-nm">${e.name}</div>
+              <div class="ex-sets">${e.sets || ''} ${e.reps?'x '+e.reps:''} ${e.weight?'· '+e.weight:''}</div>
+              ${rmHint}
+            </div>
+          </div>
+        `;
+      }).join('')}
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #1a1a1a;font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;text-align:center;letter-spacing:1px">
+        ${checks.length} / ${totalEx} EJERCICIOS · ${Math.round(checks.length/totalEx*100)||0}%
+      </div>
+    `;
+
+    document.querySelectorAll('.ex-checkbox').forEach(c => {
+      c.onclick = async () => {
+        const idx = parseInt(c.dataset.idx);
+        let newChecks = [...checks];
+        const wasFirst = !newChecks.length;
+        if (newChecks.includes(idx)) newChecks = newChecks.filter(x => x !== idx);
+        else newChecks.push(idx);
+        try {
+          await db.collection('students').doc(studentDoc.id).collection('checks').doc(today).set({
+            date: today, exercises: newChecks,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          await db.collection('students').doc(studentDoc.id).update({
+            lastAttendance: today,
+            attendanceDays: firebase.firestore.FieldValue.arrayUnion(today)
+          });
+          loadAtletas();
+          // Achievement: completó toda la rutina
+          if (newChecks.length === totalEx && totalEx > 0) {
+            await checkAndShowAchievement('routine_completed_first', '✅', '¡RUTINA COMPLETA!', 'Completaste todos los ejercicios del día. Disciplina pura.');
+          }
+        } catch (e) { toast('Error: '+e.message); }
+      };
+    });
+  } catch (e) {
+    $('routine-today').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+// === PRs ===
+async function loadPRs() {
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('prs').get();
+    prMap = {};
+    snap.docs.forEach(d => prMap[d.id] = d.data());
+
+    $('prs-grid').innerHTML = LIFTS.map(l => {
+      const pr = prMap[l.id];
+      return `
+        <div class="pr-cell" data-lift="${l.id}">
+          <div class="pr-name">${l.name}</div>
+          <div class="pr-val ${pr ? '' : 'empty'}">${pr ? `${pr.value} ${l.unit}` : '— —'}</div>
+          ${pr && pr.date ? `<div class="pr-date">${fmtDate(pr.date)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    document.querySelectorAll('.pr-cell').forEach(c => {
+      c.onclick = () => openPRDetail(c.dataset.lift);
+    });
+  } catch (e) {
+    $('prs-grid').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+async function openPRDetail(liftId) {
+  const lift = LIFTS.find(l => l.id === liftId);
+  // Cargar histórico
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('prs').doc(liftId).collection('history').orderBy('date', 'desc').get();
+    const history = snap.docs.map(d => ({id:d.id,...d.data()}));
+    const current = prMap[liftId];
+
+    // Si hay current PR pero no está en history, agregarlo
+    let allPoints = [...history];
+    if (current && !history.find(h => h.date === current.date && h.value === current.value)) {
+      allPoints.unshift({ value: current.value, date: current.date });
+    }
+
+    // Generar SVG chart
+    let chartSVG = '<div style="text-align:center;color:#555;padding:30px 0;font-size:12px">Sin datos para gráfico</div>';
+    if (allPoints.length >= 2) {
+      const points = [...allPoints].reverse(); // ascending date
+      const values = points.map(p => p.value);
+      const minV = Math.min(...values);
+      const maxV = Math.max(...values);
+      const range = maxV - minV || 1;
+      const W = 320, H = 120, padX = 20, padY = 14;
+      const stepX = (W - padX*2) / (points.length - 1 || 1);
+      const path = points.map((p, i) => {
+        const x = padX + i * stepX;
+        const y = H - padY - ((p.value - minV) / range) * (H - padY*2);
+        return `${i===0?'M':'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ');
+      const dots = points.map((p, i) => {
+        const x = padX + i * stepX;
+        const y = H - padY - ((p.value - minV) / range) * (H - padY*2);
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#FFD60A"/>`;
+      }).join('');
+      chartSVG = `
+        <svg class="pr-chart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+          <line x1="${padX}" y1="${H-padY}" x2="${W-padX}" y2="${H-padY}" stroke="#1e1e1e" stroke-width="1"/>
+          <path d="${path}" stroke="#FFD60A" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          ${dots}
+          <text x="${padX}" y="12" fill="#666" font-size="9" font-family="JetBrains Mono">${minV}${lift.unit}</text>
+          <text x="${W-padX-30}" y="12" fill="#666" font-size="9" font-family="JetBrains Mono">${maxV}${lift.unit}</text>
+        </svg>
+      `;
+    }
+
+    openModal(`📊 ${lift.name}`, `
+      <div class="pr-chart-card" style="margin:0 0 12px;padding:12px">
+        <div class="pr-chart-title">PROGRESIÓN</div>
+        ${chartSVG}
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#888">
+          <span>${allPoints.length} registros</span>
+          <span>Tu mejor: <strong style="color:#FFD60A">${current ? current.value+lift.unit : '—'}</strong></span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-add-pr" style="width:100%;margin-bottom:12px">+ NUEVO REGISTRO</button>
+
+      <div class="pr-chart-title" style="font-size:14px;margin-bottom:6px">HISTORIAL</div>
+      <div class="pr-history-list">
+        ${allPoints.length ? allPoints.map(p => `
+          <div class="pr-history-row">
+            <span class="dt">${fmtDateLong(p.date)}</span>
+            <span class="val">${p.value} ${lift.unit}</span>
+          </div>
+        `).join('') : '<div class="empty-state" style="padding:14px">Sin registros</div>'}
+      </div>
+    `, null, 'Cerrar');
+
+    setTimeout(() => {
+      const btn = $('btn-add-pr');
+      if (btn) btn.onclick = () => { closeModal(); editPR(liftId); };
+    }, 100);
+  } catch (e) { toast('Error: '+e.message); }
+}
+
+function editPR(liftId) {
+  const lift = LIFTS.find(l => l.id === liftId);
+  const current = prMap[liftId];
+  openModal(`Cargar PR · ${lift.name}`, `
+    <div class="field-group"><label>Tu mejor (${lift.unit})</label><input id="pr-value" type="number" step="0.5" value="${current?.value||''}"></div>
+    <div class="field-group"><label>Fecha</label><input id="pr-date" type="date" value="${dateInputValue(current?.date || todayStr())}"></div>
+    <div class="field-group"><label>Notas</label><textarea id="pr-note">${current?.note||''}</textarea></div>
+  `, async () => {
+    const val = parseFloat($('pr-value').value);
+    if (isNaN(val)) { toast('Valor inválido'); return false; }
+    const dateRaw = $('pr-date').value || todayStr();
+    const [y,m,d] = dateRaw.split('-').map(Number);
+    const dateFmt = `${y}-${m}-${d}`;
+    try {
+      const ref = db.collection('students').doc(studentDoc.id).collection('prs').doc(liftId);
+      const isNewPR = !current || val > current.value;
+      await ref.set({
+        value: val, date: dateFmt, note: $('pr-note').value, unit: lift.unit,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      // Guardar en historia
+      await ref.collection('history').add({
+        value: val, date: dateFmt, note: $('pr-note').value,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('🏆 PR guardado!');
+      loadPRs();
+      // Achievement: PR mejorado
+      if (current && isNewPR) {
+        showAchievement('🚀', '¡NUEVO PR!', `${lift.name}: ${current.value} → ${val} ${lift.unit}. +${(val-current.value).toFixed(1)} ${lift.unit}!`);
+      } else if (!current) {
+        await checkAndShowAchievement('first_pr', '🏆', '¡PRIMER PR!', 'Empezaste a trackear tus PRs. Esto es lo que va a marcar tu progreso.');
+      }
+      return true;
+    } catch (e) { toast('Error: '+e.message); return false; }
+  });
+}
+
+// === HISTORIAL ===
+async function loadHistory() {
+  try {
+    const snap = await db.collection('students').doc(studentDoc.id).collection('wod_results').orderBy('date', 'desc').limit(50).get();
+    const items = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if (!items.length) {
+      $('history-list').innerHTML = '<div class="empty-state">Todavía no cargaste ningún resultado.<br>Cuando termines un WOD, cargá el resultado y aparecerá acá.</div>';
+      return;
+    }
+    $('history-list').innerHTML = items.map(r => `
+      <div class="history-row" data-id="${r.id}">
+        <div class="h-head">
+          <div class="h-name">${r.wodName || 'WOD'} ${r.isPR ? '🏆' : ''}</div>
+          <div class="h-date">${fmtDate(r.date)}</div>
+        </div>
+        <div class="h-result">${r.value || ''}</div>
+        ${r.scale ? `<span class="h-scale ${r.scale}">${r.scale}</span>` : ''}
+        ${r.note ? `<div style="margin-top:6px;font-size:11px;color:#888;font-style:italic">${r.note}</div>` : ''}
+      </div>
+    `).join('');
+  } catch (e) {
+    $('history-list').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+  }
+}
+
+// === %RM ===
+$('btn-calc-rm').onclick = () => {
+  const rm = parseFloat($('calc-1rm').value);
+  const pct = parseFloat($('calc-pct').value);
+  if (isNaN(rm) || isNaN(pct)) { $('calc-result').textContent = '— kg'; return; }
+  $('calc-result').textContent = `${(rm*pct/100).toFixed(1)} kg`;
+};
+
+// === MODAL ===
+function openModal(title, html, onSave, cancelLabel) {
+  const wrap = document.createElement('div');
+  wrap.className = 'modal-overlay';
+  wrap.innerHTML = `
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <div class="modal-title">${title}</div>
+        <button class="modal-close">✕</button>
+      </div>
+      <div>${html}</div>
+      <div class="modal-actions">
+        ${onSave ? `<button class="btn-primary modal-save">GUARDAR</button>` : ''}
+        <button class="btn-secondary modal-cancel">${cancelLabel || (onSave?'CANCELAR':'CERRAR')}</button>
+      </div>
+    </div>
+  `;
+  $('modal-container').appendChild(wrap);
+  wrap.onclick = closeModal;
+  wrap.querySelector('.modal-close').onclick = closeModal;
+  wrap.querySelector('.modal-cancel').onclick = closeModal;
+  if (onSave) wrap.querySelector('.modal-save').onclick = async () => {
+    const ok = await onSave();
+    if (ok !== false) closeModal();
+  };
+}
+function closeModal() {
+  const c = $('modal-container');
+  if (c.firstChild) c.removeChild(c.firstChild);
+}
+</script>
+
+</body>
+</html>
